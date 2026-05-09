@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import dynamic from "next/dynamic";
 import TneaScoreCalculator from "../components/TneaScoreCalculator";
+import HelpTooltip from "../components/HelpTooltip";
 import {
   getPrimaryInputConfig,
   getPrimaryInputError,
@@ -22,6 +23,26 @@ const getCleanQueryEntries = (data) =>
 
 const getFieldLabel = (field, formData) =>
   typeof field.label === "function" ? field.label(formData) : field.label;
+
+const examOptions = Object.keys(examConfigs)
+  .filter((exam) => exam !== "JEE Main-JOSAA" && exam !== "JEE Advanced")
+  .map((exam) => ({
+    value: exam,
+    label: exam,
+    code: examConfigs[exam].code,
+    apiEndpoint: examConfigs[exam].apiEndpoint,
+  }));
+
+const examDescriptions = {
+  JoSAA: "IIT, NIT, IIIT, and GFTI options using JEE Main or Advanced ranks.",
+  "JEE Main-JAC": "Delhi counselling options for JAC participating institutes.",
+  GUJCET: "Gujarat engineering, medical, and pharmacy options by score.",
+  NEETUG: "Medical, dental, and nursing options using NEET UG rank.",
+  "MHT CET": "Maharashtra engineering options by MHT CET rank.",
+  KCET: "Karnataka options across engineering and other course types.",
+  TNEA: "Tamil Nadu engineering options using calculated TNEA score.",
+  TGEAPCET: "Telangana engineering options using TG EAPCET rank.",
+};
 
 const ExamForm = () => {
   const [selectedExam, setSelectedExam] = useState("");
@@ -153,6 +174,10 @@ const ExamForm = () => {
       setEstimatedPercentile(null);
     }
     setFormData(baseFormData);
+  };
+
+  const handleExamCardSelect = (examOption) => {
+    handleExamChange(examOption);
   };
 
   const handleInputChange = (name) => (selectedOption) => {
@@ -494,10 +519,52 @@ const ExamForm = () => {
                         gtag('config', 'G-FHGVRT52L7');
                       `}
           </Script>
-          <div className="mt-4 flex w-full max-w-4xl flex-col items-center rounded-2xl border border-[#eaded8] bg-white p-5 pb-6 text-center shadow-sm sm:mt-6 sm:p-6">
+          <div className="mt-4 flex w-full max-w-5xl flex-col items-center rounded-2xl border border-[#eaded8] bg-white p-5 pb-6 text-center shadow-sm sm:mt-6 sm:p-6">
             <h1 className="mb-2 text-2xl font-bold text-[#2f2320] md:text-3xl">
               {getConstants().TITLE}
             </h1>
+            <p className="mb-5 max-w-3xl text-sm leading-6 text-[#5f4a45] sm:text-base">
+              Find college and stream options using your rank, score, category,
+              home state, and counselling details.
+            </p>
+            <div className="mb-6 w-full text-left">
+              <div className="mb-3 flex items-center gap-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-[#4a3935]">
+                  Choose an exam
+                </h2>
+                <HelpTooltip text="Only fields for the selected exam or counselling process will appear below." />
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {examOptions.map((exam) => {
+                  const isSelected = selectedExam === exam.value;
+                  return (
+                    <button
+                      key={exam.value}
+                      type="button"
+                      onClick={() => handleExamCardSelect(exam)}
+                      className={`min-h-[112px] rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-[#f4d5d6] ${
+                        isSelected
+                          ? "border-[#B52326] bg-[#fff5f5] shadow-sm"
+                          : "border-[#eaded8] bg-[#fffdfa] hover:border-[#d6b8ae]"
+                      }`}
+                      aria-pressed={isSelected}
+                    >
+                      <span
+                        className={`block text-base font-bold ${
+                          isSelected ? "text-[#B52326]" : "text-[#2f2320]"
+                        }`}
+                      >
+                        {exam.label}
+                      </span>
+                      <span className="mt-2 block text-xs leading-5 text-[#6d5550]">
+                        {examDescriptions[exam.value] ||
+                          "Explore matching college and course options."}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             {/* TGEAPCET Disclaimer - Shows when EWS category is selected */}
             {selectedExam === "TGEAPCET" && formData.category === "EWS" && (
               <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6 w-full">
@@ -508,29 +575,6 @@ const ExamForm = () => {
             )}
 
             <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-2">
-              {renderFormCard(
-                "exam",
-                "Select Exam/Counselling Process",
-                <Dropdown
-                  options={Object.keys(examConfigs)
-                    .filter(
-                      (exam) =>
-                        exam !== "JEE Main-JOSAA" && exam !== "JEE Advanced"
-                    )
-                    .map((exam) => ({
-                      value: exam,
-                      label: exam,
-                      code: examConfigs[exam].code,
-                      apiEndpoint: examConfigs[exam].apiEndpoint,
-                    }))}
-                  onChange={handleExamChange}
-                  selectedValue={selectedExam}
-                  className="w-full"
-                />,
-                null,
-                null,
-                true
-              )}
               {renderFields()}
 
               {selectedExam && selectedExam === "TNEA" ? (
