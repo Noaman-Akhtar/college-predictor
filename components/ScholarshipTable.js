@@ -1,24 +1,8 @@
 import React from "react";
-
-const parseDeadline = (value) => {
-  if (!value) return null;
-  const parts = String(value).split("/").map((part) => Number(part));
-  if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) {
-    return null;
-  }
-  const [month, day, year] = parts;
-  return new Date(year, month - 1, day);
-};
-
-const getDisplayStatus = (item) => {
-  const rawStatus = String(item.Status || "").trim();
-  if (rawStatus.toLowerCase() === "closed") return "Closed";
-  const deadline = parseDeadline(item["Last Date"]);
-  if (!deadline) return rawStatus || "Status unavailable";
-  const now = new Date();
-  deadline.setHours(23, 59, 59, 999);
-  return deadline < now ? "Closed" : rawStatus || "Status unavailable";
-};
+import {
+  getScholarshipDisplayStatus,
+  getScholarshipStatusFilterKey,
+} from "../lib/scholarships/status";
 
 const TableHeader = ({ headers }) => (
   <thead>
@@ -157,10 +141,16 @@ const ScholarshipTable = ({
     { key: "Special Criteria", label: "Special Criteria" },
   ];
 
-  const getStatusPillClass = (status) =>
-    String(status || "").toLowerCase() === "closed"
-      ? "border border-[#f0c7c8] bg-[#fff1f1] text-[#8f2e31]"
-      : "border border-[#d8d3ad] bg-[#fff9e8] text-[#7a5b00]";
+  const getStatusPillClass = (item) => {
+    const statusKey = getScholarshipStatusFilterKey(item);
+    if (statusKey === "open") {
+      return "border border-[#b7d8c3] bg-[#effaf3] text-[#246b3b]";
+    }
+    if (statusKey === "deadline-passed") {
+      return "border border-[#d8d3ad] bg-[#fff9e8] text-[#7a5b00]";
+    }
+    return "border border-[#f0c7c8] bg-[#fff1f1] text-[#8f2e31]";
+  };
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-[#eaded8] bg-white shadow-sm">
@@ -181,18 +171,20 @@ const ScholarshipTable = ({
                   index % 2 === 0 ? "bg-[#fffdfa]" : "bg-white"
                 }`}
               >
-                <TableCell className="font-medium">{item["Scholarship Name"]}</TableCell>
+                <TableCell className="font-medium">
+                  {item["Scholarship Name"]}
+                </TableCell>
                 <TableCell>
                   {(() => {
-                    const displayStatus = getDisplayStatus(item);
+                    const displayStatus = getScholarshipDisplayStatus(item);
                     return (
-                  <span
-                    className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusPillClass(
-                      displayStatus
-                    )}`}
-                  >
-                    {displayStatus}
-                  </span>
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusPillClass(
+                          item
+                        )}`}
+                      >
+                        {displayStatus}
+                      </span>
                     );
                   })()}
                 </TableCell>

@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Fuse from "fuse.js";
 import ScholarshipTable from "./ScholarshipTable";
+import {
+  SCHOLARSHIP_STATUS_FILTERS,
+  getScholarshipStatusFilterKey,
+} from "../lib/scholarships/status";
 
 const fuseOptions = {
   includeScore: false,
@@ -10,30 +14,11 @@ const fuseOptions = {
   keys: ["Scholarship Name", "Stream", "State", "Eligibility"],
 };
 
-const parseDeadline = (value) => {
-  if (!value) return null;
-  const parts = String(value).split("/").map((part) => Number(part));
-  if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) {
-    return null;
-  }
-  const [month, day, year] = parts;
-  return new Date(year, month - 1, day);
-};
-
-const isReferenceClosed = (scholarship) => {
-  const rawStatus = String(scholarship.Status || "").toLowerCase();
-  if (rawStatus === "closed") return true;
-  const deadline = parseDeadline(scholarship["Last Date"]);
-  if (!deadline) return false;
-  const now = new Date();
-  deadline.setHours(23, 59, 59, 999);
-  return deadline < now;
-};
-
 const ScholarshipReferenceBrowser = () => {
   const [scholarships, setScholarships] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [expandedRows, setExpandedRows] = useState({});
 
   useEffect(() => {
@@ -63,16 +48,31 @@ const ScholarshipReferenceBrowser = () => {
   );
 
   const filteredScholarships = useMemo(() => {
-    if (!searchTerm.trim()) {
-      return scholarships;
+    const searchResults = searchTerm.trim()
+      ? fuseInstance.search(searchTerm.trim()).map((result) => result.item)
+      : scholarships;
+
+    if (statusFilter === "all") {
+      return searchResults;
     }
-    return fuseInstance.search(searchTerm.trim()).map((result) => result.item);
-  }, [fuseInstance, scholarships, searchTerm]);
+
+    return searchResults.filter(
+      (scholarship) =>
+        getScholarshipStatusFilterKey(scholarship) === statusFilter
+    );
+  }, [fuseInstance, scholarships, searchTerm, statusFilter]);
 
   const closedCount = useMemo(
-    () => scholarships.filter((item) => isReferenceClosed(item)).length,
+    () =>
+      scholarships.filter(
+        (item) => getScholarshipStatusFilterKey(item) !== "open"
+      ).length,
     [scholarships]
   );
+
+  useEffect(() => {
+    setExpandedRows({});
+  }, [searchTerm, statusFilter]);
 
   const toggleRowExpansion = (index) => {
     setExpandedRows((prev) => ({
@@ -121,6 +121,28 @@ const ScholarshipReferenceBrowser = () => {
             placeholder="Try: engineering, girls scholarship, Maharashtra..."
             className="w-full rounded-xl border border-[#d8c7c1] bg-[#fffdfa] px-4 py-3 text-sm text-[#2f2320] outline-none transition focus:border-[#b52326] focus:ring-2 focus:ring-[#f4d5d6]"
           />
+          <div className="mt-4">
+            <p className="mb-2 text-sm font-semibold text-[#5b1f20]">
+              Filter by status
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {SCHOLARSHIP_STATUS_FILTERS.map((filter) => (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={() => setStatusFilter(filter.key)}
+                  className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                    statusFilter === filter.key
+                      ? "border-[#B52326] bg-[#B52326] text-white"
+                      : "border-[#d8c7c1] bg-[#fffdfa] text-[#5b3a34] hover:bg-[#fff1f1]"
+                  }`}
+                  aria-pressed={statusFilter === filter.key}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {isLoading ? (
@@ -135,7 +157,7 @@ const ScholarshipReferenceBrowser = () => {
           />
         ) : (
           <div className="rounded-2xl border border-[#eaded8] bg-white px-6 py-12 text-center text-[#5b3a34] shadow-sm">
-            No scholarships matched your search. Try a broader keyword.
+            No scholarships matched your search and status filter.
           </div>
         )}
       </div>
