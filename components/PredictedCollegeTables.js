@@ -187,7 +187,7 @@ const ExpandedRowComponent = ({ item, fields, exam, examColumnMapping }) => {
   );
 };
 
-const ROWS_PER_PAGE_INITIAL = 30; // Variable for initial rows
+const ROWS_PER_PAGE = 20;
 
 const PredictedCollegesTable = ({
   data = [],
@@ -196,7 +196,7 @@ const PredictedCollegesTable = ({
   onSearchChange = null,
 }) => {
   const [expandedRows, setExpandedRows] = useState({});
-  const [showAllRows, setShowAllRows] = useState(false); // State for showing all rows
+  const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({
     key: "closing_rank",
     order: "asc",
@@ -582,6 +582,11 @@ const PredictedCollegesTable = ({
     return <ArrowUp size={16} />;
   };
 
+  const getSortDirectionText = (key) => {
+    if (!sortConfig || sortConfig.key !== key) return null;
+    return sortConfig.order === "desc" ? "High to Low" : "Low to High";
+  };
+
   const downloadCsv = () => {
     if (!sortedData.length) return;
     const headers = predicted_colleges_table_column.map((column) =>
@@ -610,6 +615,91 @@ const PredictedCollegesTable = ({
     URL.revokeObjectURL(url);
   };
 
+  const pageCount = Math.max(1, Math.ceil(sortedData.length / ROWS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, pageCount);
+  const pageStartIndex = (safeCurrentPage - 1) * ROWS_PER_PAGE;
+  const pageEndIndex = Math.min(pageStartIndex + ROWS_PER_PAGE, sortedData.length);
+  const paginatedData = sortedData.slice(pageStartIndex, pageEndIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setExpandedRows({});
+  }, [data, searchTerm, sortConfig]);
+
+  const getPaginationItems = () => {
+    const pages = [];
+    const addPage = (page) => {
+      if (!pages.includes(page)) pages.push(page);
+    };
+
+    addPage(1);
+    addPage(pageCount);
+    for (let page = safeCurrentPage - 1; page <= safeCurrentPage + 1; page += 1) {
+      if (page > 1 && page < pageCount) addPage(page);
+    }
+
+    return pages
+      .sort((a, b) => a - b)
+      .reduce((items, page, index, sortedPages) => {
+        if (index > 0 && page - sortedPages[index - 1] > 1) {
+          items.push(`ellipsis-${sortedPages[index - 1]}-${page}`);
+        }
+        items.push(page);
+        return items;
+      }, []);
+  };
+
+  const renderPagination = () => {
+    if (pageCount <= 1) return null;
+
+    return (
+      <nav
+        className="mt-4 flex flex-wrap items-center justify-center gap-2"
+        aria-label="Results pagination"
+      >
+        <button
+          type="button"
+          onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          disabled={safeCurrentPage === 1}
+          className="rounded-lg border border-[#d8c7c1] bg-white px-3 py-2 text-sm text-[#4a3935] hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Previous
+        </button>
+        {getPaginationItems().map((item) =>
+          typeof item === "string" ? (
+            <span key={item} className="px-2 text-sm text-[#6d5550]">
+              ...
+            </span>
+          ) : (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setCurrentPage(item)}
+              aria-current={item === safeCurrentPage ? "page" : undefined}
+              className={`min-w-10 rounded-lg border px-3 py-2 text-sm ${
+                item === safeCurrentPage
+                  ? "border-[#B52326] bg-[#B52326] text-white"
+                  : "border-[#d8c7c1] bg-white text-[#4a3935] hover:bg-[#fff5f5]"
+              }`}
+            >
+              {item}
+            </button>
+          )
+        )}
+        <button
+          type="button"
+          onClick={() =>
+            setCurrentPage((page) => Math.min(pageCount, page + 1))
+          }
+          disabled={safeCurrentPage === pageCount}
+          className="rounded-lg border border-[#d8c7c1] bg-white px-3 py-2 text-sm text-[#4a3935] hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Next
+        </button>
+      </nav>
+    );
+  };
+
   const renderTableHeader = () => (
     <tr className={commonHeaderClass}>
       {predicted_colleges_table_column.map((column) => (
@@ -618,35 +708,49 @@ const PredictedCollegesTable = ({
           className="px-4 py-3 border-b border-[#decac3] whitespace-nowrap"
         >
           {supportsSalarySort && column.key === rankColumnKey ? (
-            <button
-              type="button"
-              onClick={toggleRankSort}
-              className="font-semibold inline-flex items-center gap-1"
-            >
-              {column.label}
-              {renderSortIcon(rankColumnKey)}
-            </button>
-          ) : supportsSalarySort && column.key === salaryColumnKey ? (
-            <div className="inline-flex items-center gap-2">
+            <div>
               <button
                 type="button"
-                onClick={toggleSalarySort}
+                onClick={toggleRankSort}
                 className="font-semibold inline-flex items-center gap-1"
               >
                 {column.label}
-                {renderSortIcon(salaryColumnKey)}
+                {renderSortIcon(rankColumnKey)}
               </button>
-              <button
-                type="button"
-                onMouseEnter={showSalaryTooltip}
-                onMouseLeave={hideSalaryTooltip}
-                onFocus={showSalaryTooltip}
-                onBlur={hideSalaryTooltip}
-                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#d6b8ae] text-[#8f2e31] hover:bg-[#f8efec]"
-                aria-label="How expected salary is calculated"
-              >
-                <Info size={12} />
-              </button>
+              {getSortDirectionText(rankColumnKey) && (
+                <span className="mt-1 block text-[11px] font-normal text-[#7a5a53]">
+                  {getSortDirectionText(rankColumnKey)}
+                </span>
+              )}
+            </div>
+          ) : supportsSalarySort && column.key === salaryColumnKey ? (
+            <div>
+              <div className="inline-flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleSalarySort}
+                  className="font-semibold inline-flex items-center gap-1"
+                >
+                  {column.label}
+                  {renderSortIcon(salaryColumnKey)}
+                </button>
+                <button
+                  type="button"
+                  onMouseEnter={showSalaryTooltip}
+                  onMouseLeave={hideSalaryTooltip}
+                  onFocus={showSalaryTooltip}
+                  onBlur={hideSalaryTooltip}
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#d6b8ae] text-[#8f2e31] hover:bg-[#f8efec]"
+                  aria-label="How expected salary is calculated"
+                >
+                  <Info size={12} />
+                </button>
+              </div>
+              {getSortDirectionText(salaryColumnKey) && (
+                <span className="mt-1 block text-[11px] font-normal text-[#7a5a53]">
+                  {getSortDirectionText(salaryColumnKey)}
+                </span>
+              )}
             </div>
           ) : (
             column.label
@@ -658,15 +762,12 @@ const PredictedCollegesTable = ({
   );
 
   const renderTableBody = () => {
-    const rowsToRender = showAllRows
-      ? sortedData
-      : sortedData.slice(0, ROWS_PER_PAGE_INITIAL);
-
-    return rowsToRender.map((item, index) => {
+    return paginatedData.map((item, index) => {
+      const rowIndex = pageStartIndex + index;
       const transformedItem = transformData(item);
 
       return (
-        <React.Fragment key={index}>
+        <React.Fragment key={rowIndex}>
           <tr
             className={`${commonCellClass} ${
               index % 2 === 0 ? "bg-[#fffdfa]" : "bg-white"
@@ -682,15 +783,15 @@ const PredictedCollegesTable = ({
                 <div className="flex justify-center">
                   <button
                     className="whitespace-nowrap rounded-lg bg-[#B52326] px-4 py-2 text-white hover:bg-[#9E1F22]"
-                    onClick={() => toggleRowExpansion(index)}
+                    onClick={() => toggleRowExpansion(rowIndex)}
                   >
-                    {expandedRows[index] ? "Show Less" : "Show More"}
+                    {expandedRows[rowIndex] ? "Show Less" : "Show More"}
                   </button>
                 </div>
               </td>
             )}
           </tr>
-          {supportsExpandedView && expandedRows[index] && (
+          {supportsExpandedView && expandedRows[rowIndex] && (
             <ExpandedRowComponent
               item={transformedItem}
               fields={expandedFields}
@@ -768,8 +869,9 @@ const PredictedCollegesTable = ({
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end">
             <p className="text-sm text-[#5b3a34]">
-              Showing {sortedData.length.toLocaleString("en-IN")} matching
-              options.
+              Showing {(pageStartIndex + 1).toLocaleString("en-IN")}-
+              {pageEndIndex.toLocaleString("en-IN")} of{" "}
+              {sortedData.length.toLocaleString("en-IN")} matching options.
             </p>
             <button
               className="w-full rounded-lg bg-[#B52326] px-4 py-2 text-white hover:bg-[#9E1F22] sm:w-auto"
@@ -786,17 +888,7 @@ const PredictedCollegesTable = ({
           <tbody>{renderTableBody()}</tbody>
         </table>
       </div>
-      {data.length > ROWS_PER_PAGE_INITIAL &&
-        !showAllRows && ( // Conditional button rendering
-          <div className="flex justify-center mt-4">
-            <button
-              className="whitespace-nowrap rounded-lg bg-[#B52326] px-6 py-3 font-semibold text-white hover:bg-[#9E1F22]"
-              onClick={() => setShowAllRows(true)}
-            >
-              Show More Recommendations
-            </button>
-          </div>
-        )}
+      {renderPagination()}
     </div>
   );
 };
