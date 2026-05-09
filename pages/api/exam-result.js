@@ -1,6 +1,6 @@
 import fs from "fs/promises";
-import examConfigs from "../../examConfig";
 import rateLimit from "express-rate-limit";
+import { getExamQueryValidation } from "../../lib/validation/examValidation";
 
 // Helper function to get client IP address
 const getIp = (req) => {
@@ -43,66 +43,16 @@ const limiter = rateLimit({
 
 export default async function handler(req, res) {
   await limiter(req, res, () => {});
+  if (res.headersSent) return;
 
   const { exam, rank } = req.query;
 
-  if (!exam || !examConfigs[exam]) {
-    return res.status(400).json({ error: "Invalid or missing exam parameter" });
+  const validation = getExamQueryValidation(req.query);
+  if (!validation.success) {
+    return res.status(400).json({ error: validation.error });
   }
 
-  const config = examConfigs[exam];
-  const primaryInputConfig = config.primaryInput;
-  const queryValue =
-    exam === "JoSAA"
-      ? req.query.mainRank || req.query.rank
-      : req.query.rank;
-
-  if (
-    primaryInputConfig &&
-    queryValue !== undefined &&
-    queryValue !== null &&
-    queryValue !== ""
-  ) {
-    const numericValue = Number(queryValue);
-    if (Number.isNaN(numericValue)) {
-      return res
-        .status(400)
-        .json({ error: `Invalid value for ${exam} input parameter.` });
-    }
-
-    if (
-      primaryInputConfig.min !== undefined &&
-      numericValue < Number(primaryInputConfig.min)
-    ) {
-      return res.status(400).json({
-        error:
-          primaryInputConfig.max !== undefined
-            ? `Please enter a value between ${primaryInputConfig.min} and ${primaryInputConfig.max}.`
-            : `Please enter a value greater than or equal to ${primaryInputConfig.min}.`,
-      });
-    }
-
-    if (
-      primaryInputConfig.max !== undefined &&
-      numericValue > Number(primaryInputConfig.max)
-    ) {
-      return res.status(400).json({
-        error: `Please enter a value between ${primaryInputConfig.min} and ${primaryInputConfig.max}.`,
-      });
-    }
-  }
-
-  // Check for required parameters
-  for (const field of config.fields) {
-    if (exam === "JoSAA" && field.name === "preferHomeState") {
-      continue;
-    }
-    if (!req.query[field.name]) {
-      return res
-        .status(400)
-        .json({ error: `Missing required parameter: ${field.name}` });
-    }
-  }
+  const config = validation.data.config;
 
   try {
     const dataPath = config.getDataPath(req.query.category);

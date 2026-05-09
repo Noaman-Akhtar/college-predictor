@@ -6,65 +6,16 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import dynamic from "next/dynamic";
 import TneaScoreCalculator from "../components/TneaScoreCalculator";
+import {
+  getPrimaryInputConfig,
+  getPrimaryInputError,
+  normalizePrimaryInputValue,
+} from "../lib/validation/examValidation";
 
 // Dynamically import Dropdown with SSR disabled
 const Dropdown = dynamic(() => import("../components/dropdown"), {
   ssr: false,
 });
-
-const defaultPrimaryInputConfig = {
-  label: "Enter Rank",
-  placeholder: "Enter your rank",
-  step: "1",
-  min: "0",
-  allowDecimal: false,
-};
-
-const getPrimaryInputConfig = (exam) =>
-  examConfigs[exam]?.primaryInput || defaultPrimaryInputConfig;
-
-const validatePrimaryInputValue = (exam, value) => {
-  if (value === "") return "";
-
-  const inputConfig = getPrimaryInputConfig(exam);
-  const numericValue = Number(value);
-  const rangeMessage =
-    inputConfig.max !== undefined
-      ? `Please enter a value between ${inputConfig.min} and ${inputConfig.max}.`
-      : `Please enter a value greater than or equal to ${inputConfig.min}.`;
-
-  if (Number.isNaN(numericValue)) {
-    return "Please enter a valid value.";
-  }
-
-  if (
-    inputConfig.min !== undefined &&
-    numericValue < Number(inputConfig.min)
-  ) {
-    return rangeMessage;
-  }
-
-  if (
-    inputConfig.max !== undefined &&
-    numericValue > Number(inputConfig.max)
-  ) {
-    return rangeMessage;
-  }
-
-  return "";
-};
-
-const normalizePrimaryInputValue = (exam, value) => {
-  if (value === "") return "";
-  const inputConfig = getPrimaryInputConfig(exam);
-  if (inputConfig.allowDecimal) {
-    return value;
-  }
-
-  const numericValue = Number(value);
-  if (Number.isNaN(numericValue)) return "";
-  return String(Math.floor(numericValue));
-};
 
 const getCleanQueryEntries = (data) =>
   Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== "");
@@ -386,7 +337,7 @@ const ExamForm = () => {
       selectedExam,
       e.target.value
     );
-    const validationError = validatePrimaryInputValue(
+    const validationError = getPrimaryInputError(
       selectedExam,
       enteredRank
     );
