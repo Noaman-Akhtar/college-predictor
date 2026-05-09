@@ -22,6 +22,18 @@ const cases = [
     expectJsonArray: true,
   },
   {
+    name: "JoSAA API rejects zero rank",
+    path: "/api/exam-result?exam=JoSAA&qualifiedJeeAdv=No&category=OPEN&mainRank=0&gender=Gender-Neutral&program=Engineering&homeState=Andhra%20Pradesh",
+    expectStatus: 400,
+    expectErrorIncludes: "Rank must be greater than or equal to 1",
+  },
+  {
+    name: "JoSAA API rejects missing field",
+    path: "/api/exam-result?exam=JoSAA&qualifiedJeeAdv=No&category=OPEN&mainRank=1414&gender=Gender-Neutral&program=Engineering",
+    expectStatus: 400,
+    expectErrorIncludes: "Missing required parameter",
+  },
+  {
     name: "GUJCET API",
     path: "/api/exam-result?exam=GUJCET&category=General&program=Engineering&rank=80",
     expectJsonArray: true,
@@ -95,10 +107,27 @@ let failed = false;
 for (const testCase of cases) {
   const url = `${baseUrl}${testCase.path}`;
   const response = await fetch(url);
+  const expectedStatus = testCase.expectStatus || 200;
 
-  if (!response.ok) {
-    console.error(`[FAIL] ${testCase.name}: HTTP ${response.status}`);
+  if (response.status !== expectedStatus) {
+    console.error(
+      `[FAIL] ${testCase.name}: expected HTTP ${expectedStatus} but got ${response.status}`
+    );
     failed = true;
+    continue;
+  }
+
+  if (testCase.expectErrorIncludes) {
+    const errorBody = await response.json();
+    const errorMessage = String(errorBody?.error || "");
+    if (!errorMessage.includes(testCase.expectErrorIncludes)) {
+      console.error(
+        `[FAIL] ${testCase.name}: expected error to include "${testCase.expectErrorIncludes}" but got "${errorMessage}"`
+      );
+      failed = true;
+      continue;
+    }
+    console.log(`[PASS] ${testCase.name}: ${errorMessage}`);
     continue;
   }
 

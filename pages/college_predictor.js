@@ -8,6 +8,11 @@ import examConfigs from "../examConfig";
 import dynamic from "next/dynamic";
 import TneaScoreCalculator from "../components/TneaScoreCalculator";
 import { debounce } from "lodash";
+import {
+  getPrimaryInputConfig,
+  getPrimaryInputError,
+  normalizePrimaryInputValue,
+} from "../lib/validation/examValidation";
 
 // Dynamically import Dropdown with SSR disabled
 const Dropdown = dynamic(() => import("../components/dropdown"), {
@@ -33,60 +38,6 @@ const baseFuseOptions = {
 
 // Default search keys fallback
 const defaultSearchKeys = ["Institute", "State", "Academic Program Name"];
-
-const defaultPrimaryInputConfig = {
-  label: "Enter Rank",
-  placeholder: "Enter your rank",
-  step: "1",
-  min: "0",
-  allowDecimal: false,
-};
-
-const getPrimaryInputConfig = (exam) =>
-  examConfigs[exam]?.primaryInput || defaultPrimaryInputConfig;
-
-const validatePrimaryInputValue = (exam, value) => {
-  if (value === "") return "";
-
-  const inputConfig = getPrimaryInputConfig(exam);
-  const numericValue = Number(value);
-  const rangeMessage =
-    inputConfig.max !== undefined
-      ? `Please enter a value between ${inputConfig.min} and ${inputConfig.max}.`
-      : `Please enter a value greater than or equal to ${inputConfig.min}.`;
-
-  if (Number.isNaN(numericValue)) {
-    return "Please enter a valid value.";
-  }
-
-  if (
-    inputConfig.min !== undefined &&
-    numericValue < Number(inputConfig.min)
-  ) {
-    return rangeMessage;
-  }
-
-  if (
-    inputConfig.max !== undefined &&
-    numericValue > Number(inputConfig.max)
-  ) {
-    return rangeMessage;
-  }
-
-  return "";
-};
-
-const normalizePrimaryInputValue = (exam, value) => {
-  if (value === "") return "";
-  const inputConfig = getPrimaryInputConfig(exam);
-  if (inputConfig.allowDecimal) {
-    return value;
-  }
-
-  const numericValue = Number(value);
-  if (Number.isNaN(numericValue)) return "";
-  return String(Math.floor(numericValue));
-};
 
 const getCleanQueryObject = (query) =>
   Object.fromEntries(
@@ -301,7 +252,7 @@ const CollegePredictor = () => {
 
   const handleRankChange = (e) => {
     const value = normalizePrimaryInputValue(queryObject.exam, e.target.value);
-    const validationError = validatePrimaryInputValue(queryObject.exam, value);
+    const validationError = getPrimaryInputError(queryObject.exam, value);
     let newQueryObject = {
       ...queryObject,
       rank: value,
@@ -839,47 +790,65 @@ const CollegePredictor = () => {
                 "mainRank",
                 examConfig.primaryInput?.label ||
                   "Enter JEE Main Category Rank",
-                <input
-                  type="number"
-                  step={examConfig.primaryInput?.step || "1"}
-                  min={examConfig.primaryInput?.min || "0"}
-                  value={
-                    queryObject.mainRank !== undefined
-                      ? normalizePrimaryInputValue(
-                          "JoSAA",
-                          String(queryObject.mainRank)
-                        )
-                      : queryObject.rank
-                      ? normalizePrimaryInputValue(
-                          "JoSAA",
-                          String(queryObject.rank)
-                        )
-                      : ""
-                  }
-                  onChange={(e) => {
-                    const value = normalizePrimaryInputValue(
-                      "JoSAA",
-                      e.target.value
-                    );
-                    const newQueryObject = {
-                      ...queryObject,
-                      mainRank: value,
-                      rank: value,
-                    };
-                    setQueryObject(newQueryObject);
-                    debouncedRouterPush(newQueryObject);
-                  }}
-                  onKeyDown={(e) => {
-                    if ([".", "e", "E", "+", "-"].includes(e.key)) {
-                      e.preventDefault();
+                <>
+                  <input
+                    type="number"
+                    step={examConfig.primaryInput?.step || "1"}
+                    min={examConfig.primaryInput?.min || "0"}
+                    value={
+                      queryObject.mainRank !== undefined
+                        ? normalizePrimaryInputValue(
+                            "JoSAA",
+                            String(queryObject.mainRank)
+                          )
+                        : queryObject.rank
+                        ? normalizePrimaryInputValue(
+                            "JoSAA",
+                            String(queryObject.rank)
+                          )
+                        : ""
                     }
-                  }}
-                  className="w-full rounded-xl border border-[#d8c7c1] bg-[#fffdfa] px-4 py-3 text-center outline-none transition focus:border-[#b52326] focus:ring-2 focus:ring-[#f4d5d6]"
-                  placeholder={
-                    examConfig.primaryInput?.placeholder ||
-                    "Enter JEE Main category rank"
-                  }
-                />
+                    onChange={(e) => {
+                      const value = normalizePrimaryInputValue(
+                        "JoSAA",
+                        e.target.value
+                      );
+                      const validationError = getPrimaryInputError(
+                        "JoSAA",
+                        value
+                      );
+                      const newQueryObject = {
+                        ...queryObject,
+                        mainRank: value,
+                        rank: value,
+                      };
+                      setQueryObject(newQueryObject);
+                      setPrimaryInputError(validationError);
+                      if (!validationError || value === "") {
+                        debouncedRouterPush(newQueryObject);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if ([".", "e", "E", "+", "-"].includes(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    className={`w-full rounded-xl border bg-[#fffdfa] px-4 py-3 text-center outline-none transition focus:ring-2 focus:ring-[#f4d5d6] ${
+                      primaryInputError
+                        ? "border-red-500 focus:border-red-500"
+                        : "border-[#d8c7c1] focus:border-[#b52326]"
+                    }`}
+                    placeholder={
+                      examConfig.primaryInput?.placeholder ||
+                      "Enter JEE Main category rank"
+                    }
+                  />
+                  {primaryInputError && (
+                    <p className="mt-2 text-sm text-red-500">
+                      {primaryInputError}
+                    </p>
+                  )}
+                </>
               )
             )}
 
