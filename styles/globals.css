@@ -53,3 +53,22 @@ ul {
 .input-placeholder-black::placeholder {
   color: #000;
 }
+
+.skip-to-content {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 1000;
+  transform: translateY(-150%);
+  border-radius: 0.5rem;
+  background: #b52326;
+  color: #fff;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 150ms ease;
+}
+
+.skip-to-content:focus {
+  transform: translateY(0);
+}

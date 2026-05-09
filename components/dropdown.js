@@ -34,6 +34,11 @@ const customStyles = {
     overflow: "hidden",
     boxShadow: "0 10px 30px rgba(47, 35, 32, 0.12)",
     border: "1px solid #eaded8",
+    zIndex: 30,
+  }),
+  menuList: (provided) => ({
+    ...provided,
+    maxHeight: "240px",
   }),
   singleValue: (provided) => ({
     ...provided,
@@ -55,6 +60,8 @@ const Dropdown = ({
   isDisabled,
   selectedValue,
   className,
+  placeholder = "Select an option",
+  noOptionsMessage = "No matching options",
 }) => {
   return (
     <Select
@@ -64,6 +71,10 @@ const Dropdown = ({
       styles={customStyles}
       instanceId={useId()}
       className={className}
+      placeholder={placeholder}
+      noOptionsMessage={() => noOptionsMessage}
+      menuPlacement="auto"
+      maxMenuHeight={240}
       value={options.find(
         (option) =>
           option.label === selectedValue || option.value === selectedValue
